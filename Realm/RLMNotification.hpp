@@ -37,7 +37,44 @@ struct RLMRecordedObservation {
     NSString *key;
 };
 
-struct RLMObservationInfo {
+class RLMObservationInfo {
+public:
+    RLMObservationInfo(id object);
+    RLMObservationInfo(RLMObjectSchema *objectSchema, std::size_t row, id object);
+    ~RLMObservationInfo();
+
+    void setReturnNil(bool value) {
+        for (auto info = this; info; info = info->next)
+            info->returnNil = value;
+    }
+
+    template<typename F>
+    void forEach(F&& f) const {
+        for (auto info = this; info; info = info->next)
+            f(info->object);
+    }
+
+    void setRow(size_t newRow);
+    bool isForRow(size_t ndx) const {
+        return row && row.get_index() == ndx;
+    }
+
+    void recordObserver(realm::Row& row, RLMObjectSchema *objectSchema,
+                        id observer, NSString *keyPath,
+                        NSKeyValueObservingOptions options, void *context);
+    void removeObserver(id observer, NSString *keyPath);
+    void removeObserver(id observer, NSString *keyPath, void *context);
+
+
+    // remove all recorded observers from the object
+    // used when adding standalone objects to a realm
+    void removeObservers();
+    // re-add the observers removed with removeObservers
+    void restoreObservers();
+
+    id valueForKey(NSString *key, id (^value)());
+
+private:
     RLMObservationInfo *next = nullptr;
     RLMObservationInfo *prev = nullptr;
 
@@ -58,40 +95,8 @@ struct RLMObservationInfo {
 
     NSMutableDictionary *cachedObjects;
 
-    RLMObservationInfo(id object);
-    RLMObservationInfo(RLMObjectSchema *objectSchema, std::size_t row, id object);
-    ~RLMObservationInfo();
-
-    void setReturnNil(bool value) {
-        for (auto info = this; info; info = info->next)
-            info->returnNil = value;
-    }
-
-    void setRow(size_t newRow);
-    void recordObserver(realm::Row& row, RLMObjectSchema *objectSchema,
-                        id observer, NSString *keyPath,
-                        NSKeyValueObservingOptions options, void *context);
-    void removeObserver(id observer, NSString *keyPath);
-    void removeObserver(id observer, NSString *keyPath, void *context);
-
-
-    // remove all recorded observers from the object
-    // used when adding standalone objects to a realm
-    void removeObservers();
-    // re-add the observers removed with removeObservers
-    void restoreObservers();
-
-    id valueForKey(NSString *key, id (^value)());
-
-private:
     void setRow(realm::Table &table, size_t newRow);
 };
-
-template<typename F>
-void for_each(const RLMObservationInfo *info, F&& f) {
-    for (; info; info = info->next)
-        f(info->object);
-}
 
 // Call the appropriate SharedGroup member function, with change notifications
 void RLMAdvanceRead(realm::SharedGroup *sg, RLMSchema *schema);

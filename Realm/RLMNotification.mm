@@ -203,7 +203,9 @@ RLMObservationInfo *RLMGetObservationInfo(std::unique_ptr<RLMObservationInfo> co
 
 void RLMForEachObserver(RLMObjectBase *obj, void (^block)(RLMObjectBase*)) {
     RLMObservationInfo *info = RLMGetObservationInfo(obj->_observationInfo, obj->_row.get_index(), obj->_objectSchema);
-    for_each(info, block);
+    if (info) {
+        info->forEach(block);
+    }
 }
 
 void RLMTrackDeletions(__unsafe_unretained RLMRealm *const realm, dispatch_block_t block) {
@@ -238,7 +240,7 @@ void RLMTrackDeletions(__unsafe_unretained RLMRealm *const realm, dispatch_block
             }
 
             for (auto observer : *observers[row.table_ndx]) {
-                if (observer->row && observer->row.get_index() == row.row_ndx) {
+                if (observer->isForRow(row.row_ndx)) {
                     changes.push_back({observer, @"invalidated"});
                     for (RLMProperty *prop in observer->objectSchema.properties)
                         changes.push_back({observer, prop.name});
@@ -253,7 +255,7 @@ void RLMTrackDeletions(__unsafe_unretained RLMRealm *const realm, dispatch_block
             }
 
             for (auto observer : *observers[table_ndx]) {
-                if (!observer->row || observer->row.get_index() != link.origin_row_ndx) {
+                if (!observer->isForRow(link.origin_row_ndx)) {
                     continue;
                 }
 
@@ -286,20 +288,20 @@ void RLMTrackDeletions(__unsafe_unretained RLMRealm *const realm, dispatch_block
         }
 
         for (auto const& change : changes)
-            for_each(change.info, [&](auto o) { [o willChangeValueForKey:change.property]; });
+            change.info->forEach([&](auto o) { [o willChangeValueForKey:change.property]; });
         for (auto const& change : arrayChanges)
-            for_each(change.info, [&](auto o) { [o willChange:NSKeyValueChangeRemoval valuesAtIndexes:change.indexes forKey:change.property]; });
+            change.info->forEach([&](auto o) { [o willChange:NSKeyValueChangeRemoval valuesAtIndexes:change.indexes forKey:change.property]; });
     });
 
     block();
 
     for (auto const& change : changes) {
         change.info->setReturnNil(true);
-        for_each(change.info, [&](auto o) { [o didChangeValueForKey:change.property]; });
+        change.info->forEach([&](auto o) { [o didChangeValueForKey:change.property]; });
     }
     for (auto const& change : arrayChanges) {
         change.info->setReturnNil(true);
-        for_each(change.info, [&](auto o) { [o didChange:NSKeyValueChangeRemoval valuesAtIndexes:change.indexes forKey:change.property]; });
+        change.info->forEach([&](auto o) { [o didChange:NSKeyValueChangeRemoval valuesAtIndexes:change.indexes forKey:change.property]; });
     }
 
     realm.group->set_cascade_notification_handler(nullptr);
@@ -352,14 +354,14 @@ class TransactLogHandler {
     void notifyObservers() {
         for (auto const& o : observers) {
             if (o.row == realm::not_found && o.column == realm::npos) {
-                for_each(o.info, [&](auto obj) { [obj didChangeValueForKey:o.key]; });
+                o.info->forEach([&](auto obj) { [obj didChangeValueForKey:o.key]; });
             }
             if (!o.changed)
                 continue;
             if (!o.linkviewChangeIndexes)
-                for_each(o.info, [&](auto obj) { [obj didChangeValueForKey:o.key]; });
+                o.info->forEach([&](auto obj) { [obj didChangeValueForKey:o.key]; });
             else {
-                for_each(o.info, [&](auto obj) {
+                o.info->forEach([&](auto obj) {
                     [obj didChange:o.linkviewChangeKind valuesAtIndexes:o.linkviewChangeIndexes forKey:o.key];
                 });
             }
@@ -383,20 +385,20 @@ public:
         for (auto const& o : observers) {
             if (o.row == realm::not_found) {
                 if (o.column == realm::npos)
-                    for_each(o.info, [&](auto obj) { [obj willChangeValueForKey:o.key]; });
+                    o.info->forEach([&](auto obj) { [obj willChangeValueForKey:o.key]; });
                 else {
                     o.info->setReturnNil(false);
-                    for_each(o.info, [&](auto obj) { [obj willChangeValueForKey:o.key]; });
+                    o.info->forEach([&](auto obj) { [obj willChangeValueForKey:o.key]; });
                     o.info->setReturnNil(true);
-                    for_each(o.info, [&](auto obj) { [obj didChangeValueForKey:o.key]; });
+                    o.info->forEach([&](auto obj) { [obj didChangeValueForKey:o.key]; });
                 }
             }
             if (!o.changed)
                 continue;
             if (!o.linkviewChangeIndexes)
-                for_each(o.info, [&](auto obj) { [obj willChangeValueForKey:o.key]; });
+                o.info->forEach([&](auto obj) { [obj willChangeValueForKey:o.key]; });
             else {
-                for_each(o.info, [&](auto obj) {
+                o.info->forEach([&](auto obj) {
                     [obj willChange:o.linkviewChangeKind valuesAtIndexes:o.linkviewChangeIndexes forKey:o.key];
                 });
             }

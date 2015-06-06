@@ -86,9 +86,9 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
     if (info) {
         NSIndexSet *indexes = is();
         NSString *key = ar->_key;
-        for_each(info, [&](__unsafe_unretained id const o) { [o willChange:kind valuesAtIndexes:indexes forKey:key]; });
+        info->forEach([&](__unsafe_unretained id const o) { [o willChange:kind valuesAtIndexes:indexes forKey:key]; });
         f();
-        for_each(info, [&](__unsafe_unretained id const o) { [o didChange:kind valuesAtIndexes:indexes forKey:key]; });
+        info->forEach([&](__unsafe_unretained id const o) { [o didChange:kind valuesAtIndexes:indexes forKey:key]; });
     }
     else {
         f();
