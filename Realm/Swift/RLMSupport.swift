@@ -50,8 +50,8 @@ public class RLMGenerator: GeneratorType {
 
 extension RLMArray: SequenceType {
     // Support Sequence-style enumeration
-    public func generate() -> GeneratorOf<RLMObject> {
-        return GeneratorOf(RLMGenerator(collection: self))
+    public func generate() -> RLMGenerator {
+        return RLMGenerator(collection: self)
     }
 
     // Swift query convenience functions
@@ -66,8 +66,8 @@ extension RLMArray: SequenceType {
 
 extension RLMResults: SequenceType {
     // Support Sequence-style enumeration
-    public func generate() -> GeneratorOf<RLMObject> {
-        return GeneratorOf(RLMGenerator(collection: self))
+    public func generate() -> RLMGenerator {
+        return RLMGenerator(collection: self)
     }
 
     // Swift query convenience functions
