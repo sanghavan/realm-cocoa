@@ -29,18 +29,29 @@ extension RLMObject {
     }
 }
 
+public class RLMGenerator: GeneratorType {
+    private var i: UInt = 0
+    private let collection: RLMCollection
+
+    init(collection: RLMCollection) {
+        self.collection = collection
+    }
+
+    typealias Element = RLMObject
+
+    public func next() -> RLMObject? {
+        if i >= collection.count {
+            return .None
+        } else {
+            return collection[i++] as? RLMObject
+        }
+    }
+}
+
 extension RLMArray: SequenceType {
     // Support Sequence-style enumeration
     public func generate() -> GeneratorOf<RLMObject> {
-        var i: UInt  = 0
-
-        return GeneratorOf<RLMObject> {
-            if (i >= self.count) {
-                return .None
-            } else {
-                return self[i++] as? RLMObject
-            }
-        }
+        return GeneratorOf(RLMGenerator(collection: self))
     }
 
     // Swift query convenience functions
@@ -56,15 +67,7 @@ extension RLMArray: SequenceType {
 extension RLMResults: SequenceType {
     // Support Sequence-style enumeration
     public func generate() -> GeneratorOf<RLMObject> {
-        var i: UInt  = 0
-
-        return GeneratorOf<RLMObject> {
-            if (i >= self.count) {
-                return .None
-            } else {
-                return self[i++] as? RLMObject
-            }
-        }
+        return GeneratorOf(RLMGenerator(collection: self))
     }
 
     // Swift query convenience functions
