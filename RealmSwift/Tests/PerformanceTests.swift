@@ -19,8 +19,6 @@
 import XCTest
 import RealmSwift
 
-#if !DEBUG && os(iOS)
-
 private func createStringObjects(factor: Int) -> Realm {
     let realm = Realm(inMemoryIdentifier: factor.description)
     realm.write {
@@ -39,11 +37,13 @@ private var largeRealm: Realm!
 private let isRunningOnDevice = TARGET_IPHONE_SIMULATOR == 0
 
 class SwiftPerformanceTests: TestCase {
-    override class func defaultTestSuite() -> XCTestSuite? {
+    override class func defaultTestSuite() -> XCTestSuite {
+#if !DEBUG && os(iOS)
         if (isRunningOnDevice) {
             return super.defaultTestSuite()
         }
-        return nil
+#endif
+        return XCTestSuite(name: "SwiftPerformanceTests")
     }
 
     override class func setUp() {
@@ -62,7 +62,7 @@ class SwiftPerformanceTests: TestCase {
         super.tearDown()
     }
 
-    override func measureBlock(block: (() -> Void)!) {
+    override func measureBlock(block: (() -> Void)) {
         super.measureBlock {
             autoreleasepool {
                 block()
@@ -70,7 +70,7 @@ class SwiftPerformanceTests: TestCase {
         }
     }
 
-    override func measureMetrics(metrics: [AnyObject]!, automaticallyStartMeasuring: Bool, forBlock block: (() -> Void)!) {
+    override func measureMetrics(metrics: [String], automaticallyStartMeasuring: Bool, forBlock block: () -> Void) {
         super.measureMetrics(metrics, automaticallyStartMeasuring: automaticallyStartMeasuring) {
             autoreleasepool {
                 block()
@@ -85,7 +85,7 @@ class SwiftPerformanceTests: TestCase {
     }
 
     private func copyRealmToTestPath(realm: Realm) -> Realm {
-        NSFileManager.defaultManager().removeItemAtPath(testRealmPath(), error: nil)
+        try! NSFileManager.defaultManager().removeItemAtPath(testRealmPath())
         realm.writeCopyToPath(testRealmPath())
         return realmWithTestPath()
     }
@@ -137,7 +137,7 @@ class SwiftPerformanceTests: TestCase {
     func testCountWhereQuery() {
         let realm = copyRealmToTestPath(largeRealm)
         measureBlock {
-            for i in 0..<50 {
+            for _ in 0..<50 {
                 let results = realm.objects(SwiftStringObject).filter("stringCol = 'a'")
                 _ = results.count
             }
@@ -147,7 +147,7 @@ class SwiftPerformanceTests: TestCase {
     func testCountWhereTableView() {
         let realm = copyRealmToTestPath(mediumRealm)
         measureBlock {
-            for i in 0..<50 {
+            for _ in 0..<50 {
                 let results = realm.objects(SwiftStringObject).filter("stringCol = 'a'")
                 _ = results.first
                 _ = results.count
@@ -159,7 +159,7 @@ class SwiftPerformanceTests: TestCase {
         let realm = copyRealmToTestPath(mediumRealm)
         measureBlock {
             for stringObject in realm.objects(SwiftStringObject).filter("stringCol = 'a'") {
-                let string = stringObject.stringCol
+                _ = stringObject.stringCol
             }
         }
     }
@@ -168,7 +168,7 @@ class SwiftPerformanceTests: TestCase {
         let realm = copyRealmToTestPath(mediumRealm)
         measureBlock {
             for stringObject in realm.objects(SwiftStringObject) {
-                let string = stringObject.stringCol
+                _ = stringObject.stringCol
             }
         }
     }
@@ -178,7 +178,7 @@ class SwiftPerformanceTests: TestCase {
         measureBlock {
             let results = realm.objects(SwiftStringObject)
             for i in 0..<results.count {
-                let string = results[i].stringCol
+                _ = results[i].stringCol
             }
         }
     }
@@ -186,12 +186,12 @@ class SwiftPerformanceTests: TestCase {
     func testEnumerateAndAccessArrayProperty() {
         let realm = copyRealmToTestPath(mediumRealm)
         realm.beginWrite()
-        let arrayPropertyObject = realm.create(SwiftArrayPropertyObject.self, value: ["name", map(realm.objects(SwiftStringObject)) { $0 }, []])
+        let arrayPropertyObject = realm.create(SwiftArrayPropertyObject.self, value: ["name", realm.objects(SwiftStringObject).map { $0 }, []])
         realm.commitWrite()
 
         measureBlock {
             for stringObject in arrayPropertyObject.array {
-                let string = stringObject.stringCol
+                _ = stringObject.stringCol
             }
         }
     }
@@ -199,13 +199,13 @@ class SwiftPerformanceTests: TestCase {
     func testEnumerateAndAccessArrayPropertySlow() {
         let realm = copyRealmToTestPath(mediumRealm)
         realm.beginWrite()
-        let arrayPropertyObject = realm.create(SwiftArrayPropertyObject.self, value: ["name", map(realm.objects(SwiftStringObject)) { $0 }, []])
+        let arrayPropertyObject = realm.create(SwiftArrayPropertyObject.self, value: ["name", realm.objects(SwiftStringObject).map { $0 }, []])
         realm.commitWrite()
 
         measureBlock {
             let list = arrayPropertyObject.array
             for i in 0..<list.count {
-                let string = list[i].stringCol
+                _ = list[i].stringCol
             }
         }
     }
@@ -268,7 +268,7 @@ class SwiftPerformanceTests: TestCase {
     func testManualDeletion() {
         inMeasureBlock {
             let realm = self.copyRealmToTestPath(mediumRealm)
-            let objects = map(realm.objects(SwiftStringObject)) { $0 }
+            let objects = realm.objects(SwiftStringObject).map { $0 }
             self.startMeasuring()
             realm.write {
                 realm.delete(objects)
@@ -413,7 +413,7 @@ class SwiftPerformanceTests: TestCase {
                 }
                 dispatch_semaphore_signal(semaphore)
                 while !stop {
-                    NSRunLoop.currentRunLoop().runMode(NSDefaultRunLoopMode, beforeDate: NSDate.distantFuture() as! NSDate)
+                    NSRunLoop.currentRunLoop().runMode(NSDefaultRunLoopMode, beforeDate: NSDate.distantFuture())
                 }
                 realm.removeNotification(token)
             }
@@ -448,7 +448,7 @@ class SwiftPerformanceTests: TestCase {
                 }
                 dispatch_semaphore_signal(semaphore)
                 while object.intCol < stopValue {
-                    NSRunLoop.currentRunLoop().runMode(NSDefaultRunLoopMode, beforeDate: NSDate.distantFuture() as! NSDate)
+                    NSRunLoop.currentRunLoop().runMode(NSDefaultRunLoopMode, beforeDate: NSDate.distantFuture())
                 }
                 realm.removeNotification(token)
             }
@@ -463,7 +463,7 @@ class SwiftPerformanceTests: TestCase {
             self.startMeasuring()
             realm.write { _ = object.intCol++ }
             while object.intCol < stopValue {
-                NSRunLoop.currentRunLoop().runMode(NSDefaultRunLoopMode, beforeDate: NSDate.distantFuture() as! NSDate)
+                NSRunLoop.currentRunLoop().runMode(NSDefaultRunLoopMode, beforeDate: NSDate.distantFuture())
             }
             dispatch_sync(queue) {}
             self.stopMeasuring()
@@ -471,5 +471,3 @@ class SwiftPerformanceTests: TestCase {
         }
     }
 }
-
-#endif
